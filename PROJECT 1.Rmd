@@ -1,0 +1,158 @@
+##Reproducible Research Project 1
+___________________________________________________________________________________________________________________________________
+
+###Introduction 
+
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a Fitbit, Nike Fuelband, or Jawbone Up. These type of devices are part of the "quantified self" movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
+
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+___________________________________________________________________________________________________________________________________
+
+### Data For the Analysis
+
+The data can be downloaded from the course web site:
+
+Dataset: [Activity Monitoring Data [52K]](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip)
+
+The variables included in this dataset are:
+
+**1.Steps: **Number of steps taking in a 5-minute interval (missing values are coded as NA) 
+
+**2.Date: **The date on which the measurement was taken in YYYY-MM-DD format
+
+**3.Interval**: Identifier for the 5-minute interval in which measurement was taken
+
+
+The dataset is stored in a comma-separated-value (CSV) file and there are a total of 17,568 observations in this dataset.
+___________________________________________________________________________________________________________________________________
+
+###Loading and processing the data in R environment
+```{r}
+activity <- read.csv("c:/Users/rx98637/Desktop/repdata_data_activity/activity.csv")
+
+```
+____________________________________________________________________________________________________________________________________
+
+###What is mean total number of steps taken per day?
+
+```{r}
+steps_per_day<-aggregate(steps~date,data=activity,FUN =sum)
+
+```
+____________________________________________________________________________________________________________________________________
+
+####Histogram of number of steps taken per day. 
+
+```{r}
+library(ggplot2)
+
+qplot(steps_per_day$steps,geom="histogram",binwidth=1000,main=" Total Steps Per Day day",xlab = "Nuber of steps",ylab ="Frequency", fill=I("blue"),col=I("red"),alpha=I(0.2),xlim=c(0,25000))+theme(plot.title = element_text(hjust = 0.5))
+```
+____________________________________________________________________________________________________________________________________
+
+#####Calculate the mean and median of the total number of steps taken per day
+```{r}
+activitymean<-mean(steps_per_day$steps,na.rm = TRUE)
+
+activitymedian<-median(steps_per_day$steps,na.rm = TRUE)
+```
+**Mean of the total number of steps taken per day is `r activitymean` and **
+**Median of the total number of steps taken per day is `r activitymedian`.**
+____________________________________________________________________________________________________________________________________
+
+###Lets see, what is daily average activity pattern ? 
+
+* Calculate average steps for each interval for all days.
+* Plot the Average Number Steps per Day by Interval.
+* Find interval with most average steps.
+
+```{r}
+Avg_steps_per_inetrval<-aggregate(steps~interval,data=activity,FUN = mean)
+max_interval <- Avg_steps_per_inetrval[which.max(Avg_steps_per_inetrval$steps),1]
+
+qplot(x=Avg_steps_per_inetrval$interval,y= Avg_steps_per_inetrval$steps,geom="line",size= "0.5",main="Average Steps Per Interval All Days",xlab = "Nuber of steps",ylab ="Frequency",col=I("red"),alpha=I(0.2),xlim=c(0,2000))+theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+**The 5 minute interval from all the days with most average steps is `r max_interval`.**
+
+_______________________________________________________________________________________________________________________________
+
+
+### Imputing missing values
+* Presence of NA days can give us wrong information about the data analysis. It can produce bias summary and other statistical results.
+* Here we are going to treat missing values by :
+1.  calculating total number of NA's in a row.
+
+2.  Change the NA's with mean or median values.
+
+
+```{r}
+
+missing <- nrow(activity[is.na(activity$steps),])
+
+# Replace each missing value with the mean value of its 5-minute interval
+
+change <- function(steps, interval) {
+    filled <- NA
+    if (!is.na(steps))
+        filled <- c(steps)
+    else
+        filled <- (Avg_steps_per_inetrval[Avg_steps_per_inetrval$interval==interval, "steps"])
+    return(filled)
+}
+
+
+Newdata <-activity
+Newdata $steps <- mapply(change, Newdata$steps, Newdata$interval)
+
+```
+
+The total number of steps with NA's is `r missing`.
+
+All of the missing values are filled in with mean value for that 5-minute interval.
+
+
+**Create a new dataset that is equal to the original dataset but with the missing data filled in.**
+```{r}
+
+total_steps<- tapply(Newdata$steps, Newdata$date, FUN=sum)
+
+```
+#####Histogram of number of steps taken per day. 
+
+```{r}
+qplot(total_steps,geom="histogram",binwidth=1000,main="Total Steps Per Day  w/0 NA",xlab = "Nuber of steps",ylab ="Frequency", fill=I("blue"),col=I("red"),alpha=I(0.2),xlim=c(0,25000))+theme(plot.title = element_text(hjust = 0.5))
+
+t_mean<-mean(total_steps)
+t_median<-median(total_steps)
+
+mean_diff<-t_mean- activitymean
+median_diff<-t_median- activitymedian
+```
+
+- **The imputed data mean is `r t_mean`**
+- **The imputed data median is `r t_median`.**
+- **The difference between the non-imputed mean and imputed mean is `r mean_diff`.**
+- **The difference between the non-imputed mean and imputed mean is `r median_diff`**
+
+**The difference between total number of steps between imputed and non-imputed data is 7.5363 × 104. Thus, there were 7.5363 × 104 more steps in the imputed data**
+
+if we compare the value of mean and median before imputing and after imputing we can see that, their is signifiicant change in the numbers.This is mainly because of the filled data. 
+___________________________________________________________________________________________________________________________________
+
+### Are there differences in activity patterns between weekdays and weekends?
+
+```{r}
+
+weekdays <- c("Monday", "Tuesday", "Wednesday", "Thursday","Friday")
+Newdata$day = as.factor(ifelse(is.element(weekdays(as.Date(Newdata$date)),weekdays), "Weekday", "Weekend"))
+
+steps_by_interval_avg<- aggregate(steps ~ interval + day, Newdata, mean)
+library(lattice)
+xyplot(steps_by_interval_avg$steps ~ steps_by_interval_avg$interval|steps_by_interval_avg$day, main="Average Steps per Day by Interval",xlab="Interval", ylab="Steps",layout=c(1,2), type="l")
+
+```
+
+**From the above graph we can conclude that, the activities on weekends are more than the weekdays.**  
+
